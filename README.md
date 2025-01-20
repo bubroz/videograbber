@@ -22,7 +22,7 @@ A simple tool to download videos from various social media platforms with simpli
 pip install videograbber
 
 # Or install from source
-git clone https://github.com/yourusername/videograbber.git
+git clone https://github.com/bubroz/videograbber.git
 cd videograbber
 pip install -e .
 
