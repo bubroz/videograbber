@@ -143,12 +143,12 @@ def get_profile_directory(browser: str, profile_name: Optional[str] = None) -> s
 class SocialMediaDL:
     def __init__(
         self,
-        output_dir: str = "videograbber-downloads",
+        output_dir: str = "~/videograbber-downloads",
         cookies_file: Optional[str] = None,
         username: Optional[str] = None,
         password: Optional[str] = None
     ):
-        self.output_dir = Path(output_dir).expanduser()
+        self.output_dir = Path(output_dir).expanduser().resolve()
         self.output_dir.mkdir(parents=True, exist_ok=True)
         self.cookies_file = Path(cookies_file).expanduser() if cookies_file else None
         self.username = username
@@ -279,8 +279,8 @@ class SocialMediaDL:
             # Export browser cookies
             cookies_file = self.export_browser_cookies(url, browser, profile)
             
-            # Prepare output directory - now relative to the project directory
-            output_dir = Path("downloads")
+            # Prepare output directory - now using self.output_dir
+            output_dir = self.output_dir
             output_dir.mkdir(parents=True, exist_ok=True)
             
             # Build yt-dlp command

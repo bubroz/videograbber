@@ -220,4 +220,31 @@ MIT License - See LICENSE file for details.
 ## Acknowledgments
 
 - Built on top of [yt-dlp](https://github.com/yt-dlp/yt-dlp)
-- Developed using [Cursor](https://cursor.sh/) 
+- Developed using [Cursor](https://cursor.sh/)
+
+## Testing with Docker
+
+For development and testing purposes, you can use the provided Dockerfile to test VideoGrabber in a fresh Linux environment:
+
+```bash
+# Build the Docker image
+docker build -t videograbber-test .
+
+# Run the container
+docker run -it videograbber-test
+
+# Inside the container, you can test the command:
+videograbber --list-profiles  # List available browser profiles
+videograbber --help          # Show help message
+```
+
+The Dockerfile sets up:
+- Ubuntu with Python, FFmpeg, and git
+- Brave, Chrome, and Firefox browsers
+- A test user with browser profile directories
+- VideoGrabber installed in a virtual environment
+
+Note: The Docker environment is for testing profile detection and basic functionality. For actual video downloads, you'll need:
+1. A real browser installation
+2. Logged-in browser profiles
+3. Valid cookies for authenticated downloads 
