@@ -3,11 +3,31 @@ import json
 import os
 import tempfile
 import time  # Add import for time.sleep
+import platform
 from pathlib import Path
 from typing import Optional, Dict, List, Union
 from dataclasses import dataclass
 from datetime import datetime
 import argparse
+
+# Browser profile paths by OS
+BROWSER_PATHS = {
+    "Darwin": {  # macOS
+        "brave": "~/Library/Application Support/BraveSoftware/Brave-Browser",
+        "chrome": "~/Library/Application Support/Google/Chrome",
+        "firefox": "~/Library/Application Support/Firefox/Profiles"
+    },
+    "Linux": {
+        "brave": "~/.config/BraveSoftware/Brave-Browser",
+        "chrome": "~/.config/google-chrome",
+        "firefox": "~/.mozilla/firefox"
+    },
+    "Windows": {
+        "brave": "%LOCALAPPDATA%\\BraveSoftware\\Brave-Browser",
+        "chrome": "%LOCALAPPDATA%\\Google\\Chrome",
+        "firefox": "%APPDATA%\\Mozilla\\Firefox\\Profiles"
+    }
+}
 
 @dataclass
 class DownloadResult:
@@ -37,10 +57,93 @@ def format_date(date_str):
     except:
         return date_str
 
+def get_browser_path(browser: str) -> str:
+    """Get the browser path for the current operating system."""
+    system = platform.system()
+    if system not in BROWSER_PATHS:
+        raise Exception(f"Unsupported operating system: {system}")
+    
+    if browser not in BROWSER_PATHS[system]:
+        raise Exception(f"Unsupported browser: {browser}")
+    
+    path = BROWSER_PATHS[system][browser]
+    if system == "Windows":
+        # Expand Windows environment variables
+        for env_var in ["LOCALAPPDATA", "APPDATA"]:
+            if env_var in os.environ:
+                path = path.replace(f"%{env_var}%", os.environ[env_var])
+    return os.path.expanduser(path)
+
+def list_browser_profiles(browser: str) -> Dict[str, str]:
+    """
+    List available profiles for a browser and their directory names.
+    Returns a dictionary of {display_name: directory_name}
+    """
+    base_path = Path(get_browser_path(browser))
+    profiles = {}
+    
+    if browser in ["brave", "chrome"]:
+        # Read Local State file which contains profile mapping
+        local_state = base_path / "Local State"
+        if local_state.exists():
+            try:
+                with open(local_state, 'r', encoding='utf-8') as f:
+                    state = json.load(f)
+                profile_info = state.get("profile", {}).get("info_cache", {})
+                
+                # Map profile directories to their display names
+                for dir_name, info in profile_info.items():
+                    display_name = info.get("name", dir_name)
+                    profiles[display_name] = dir_name
+            except Exception as e:
+                print(f"Error reading profiles: {e}")
+    
+    elif browser == "firefox":
+        # Firefox profiles are in profiles.ini
+        profiles_ini = base_path / "profiles.ini"
+        if profiles_ini.exists():
+            try:
+                import configparser
+                config = configparser.ConfigParser()
+                config.read(profiles_ini)
+                
+                for section in config.sections():
+                    if section.startswith("Profile"):
+                        name = config[section].get("Name", "")
+                        path = config[section].get("Path", "")
+                        if name and path:
+                            profiles[name] = path
+            except Exception as e:
+                print(f"Error reading Firefox profiles: {e}")
+    
+    return profiles
+
+def get_profile_directory(browser: str, profile_name: Optional[str] = None) -> str:
+    """Get the actual profile directory name from a display name or directory name."""
+    if not profile_name:
+        return "Default"
+        
+    profiles = list_browser_profiles(browser)
+    
+    # If the profile_name is a display name, get its directory
+    if profile_name in profiles:
+        return profiles[profile_name]
+    
+    # If it's already a directory name, verify it exists
+    profile_path = Path(get_browser_path(browser)) / profile_name
+    if profile_path.exists():
+        return profile_name
+        
+    raise Exception(
+        f"Profile '{profile_name}' not found. Available profiles:\n" +
+        "\n".join(f"- Display name: '{name}' (Directory: '{dir}')" 
+                  for name, dir in profiles.items())
+    )
+
 class SocialMediaDL:
     def __init__(
         self,
-        output_dir: str = "~/Downloads/social_media",
+        output_dir: str = "downloads",
         cookies_file: Optional[str] = None,
         username: Optional[str] = None,
         password: Optional[str] = None
@@ -107,42 +210,46 @@ class SocialMediaDL:
             
         cookies_path = Path(self._temp_dir) / f"cookies_{browser}.txt"
         
-        # Handle browser paths and profiles
-        browser_spec = browser
-        if browser == "brave":
-            base_path = "~/Library/Application Support/BraveSoftware/Brave-Browser"
-            if profile:
-                browser_spec = f"brave:{base_path}/{profile}"
-            elif os.path.exists(os.path.expanduser(f"{base_path}/Default")):
-                browser_spec = f"brave:{base_path}/Default"
-            else:
-                browser_spec = f"brave:{base_path}"
-            print(f"Using browser at: {browser_spec}")
+        # Get browser base path and resolve profile directory
+        base_path = get_browser_path(browser)
+        profile_dir = get_profile_directory(browser, profile)
         
-        # Use a modern macOS Brave user agent
+        # Handle browser-specific profile paths
+        browser_spec = browser
+        if browser in ["brave", "chrome"]:
+            browser_spec = f"{browser}:{base_path}/{profile_dir}"
+        elif browser == "firefox":
+            browser_spec = f"firefox:{profile_dir}"
+        
+        print(f"Using browser at: {browser_spec}")
+        
+        # Use appropriate user agent
         user_agent = "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
         
         # Export cookies without domain filter to support all sites
         command = [
             "yt-dlp",
             "--cookies-from-browser",
-            browser_spec,  # No domain filter - get all cookies
+            browser_spec,
             "--user-agent",
             user_agent,
             "--cookies",
             str(cookies_path),
             "--skip-download",
-            url  # Use the target URL for validation
+            url
         ]
         
         result = self._run_command(command)
         if result.returncode != 0:
             print(f"Cookie export error output: {result.stderr}")
             if "could not find" in result.stderr:
-                raise Exception(f"Could not find browser cookies. Please make sure:\n"
-                              f"1. You have {browser} browser installed\n"
-                              f"2. You're logged into the site you're trying to download from\n"
-                              f"3. Your browser profile path is correct: {browser_spec}")
+                raise Exception(
+                    f"Could not find browser cookies. Please make sure:\n"
+                    f"1. You have {browser} browser installed\n"
+                    f"2. You're logged into the site you're trying to download from\n"
+                    f"3. Your browser profile path is correct: {browser_spec}\n"
+                    f"4. Common profile names are: 'Default', 'Profile 1', 'Profile 2'"
+                )
             raise Exception(f"Failed to export cookies: {result.stderr}")
             
         if not cookies_path.exists():
@@ -332,41 +439,51 @@ class SocialMediaDL:
         else:
             raise Exception(f"Failed to list formats: {result.stderr}")
 
-if __name__ == "__main__":
-    # Set up argument parser
-    parser = argparse.ArgumentParser(description='Download videos from sites supported by yt-dlp')
-    parser.add_argument('url', help='URL of the video to download')
-    parser.add_argument('--browser', default='brave', help='Browser to export cookies from (default: brave)')
-    parser.add_argument('--profile', help='Browser profile to use (e.g. "Profile 1", "Default")')
-    parser.add_argument('--list-formats', action='store_true', help='List available video formats instead of downloading')
-    parser.add_argument('--format', help='Video format code or quality (e.g. "best", "bestvideo+bestaudio", "137+140", "mp4")')
+def main():
+    """Command-line interface for VideoGrabber."""
+    parser = argparse.ArgumentParser(description="Download videos from various social media platforms.")
+    parser.add_argument("url", nargs="?", help="URL of the video to download")
+    parser.add_argument("--browser", default="brave", choices=["brave", "chrome", "firefox"],
+                      help="Browser to use for cookies (default: brave)")
+    parser.add_argument("--profile", help="Browser profile to use (e.g., 'Profile 1')")
+    parser.add_argument("--format", help="Video format to download (default: bestvideo+bestaudio)")
+    parser.add_argument("--list-formats", action="store_true", help="List available formats and exit")
+    parser.add_argument("--list-profiles", action="store_true", help="List available browser profiles and exit")
+    
     args = parser.parse_args()
     
-    # Use context manager to ensure cleanup
+    if args.list_profiles:
+        profiles = list_browser_profiles(args.browser)
+        if profiles:
+            print(f"\nAvailable {args.browser} profiles:")
+            for display_name, dir_name in profiles.items():
+                print(f"- Display name: '{display_name}'")
+                print(f"  Directory:    '{dir_name}'")
+        else:
+            print(f"\nNo profiles found for {args.browser}")
+        return
+    
+    if not args.url:
+        parser.error("URL is required unless using --list-profiles")
+    
     with SocialMediaDL() as dl:
-        try:
-            # Export cookies from specified browser and profile
-            cookies_path = dl.export_browser_cookies(url=args.url, browser=args.browser, profile=args.profile)
+        if args.list_formats:
+            dl.list_formats(args.url)
+        else:
+            result = dl.download_video(
+                url=args.url,
+                browser=args.browser,
+                profile=args.profile,
+                format=args.format if args.format else "bestvideo+bestaudio/best"
+            )
             
-            if args.list_formats:
-                # Just list formats and exit
-                dl_with_cookies = SocialMediaDL(cookies_file=str(cookies_path))
-                dl_with_cookies.list_formats(args.url)
+            if result.success:
+                print(f"File location: {result.file_path}")
+                if result.metadata:
+                    print(f"Creator: {result.metadata.get('creator', 'Unknown')}")
             else:
-                # Create new instance with the exported cookies
-                dl_with_cookies = SocialMediaDL(cookies_file=str(cookies_path))
-                
-                # Download content from provided URL with specified format
-                format_spec = args.format if args.format else "bestvideo+bestaudio"
-                result = dl_with_cookies.download_video(args.url, format=format_spec)
-                
-                if result.success:
-                    print(f"Downloaded to: {result.file_path}")
-                    if result.metadata:
-                        print(f"Creator: {result.metadata['creator']}")
-                else:
-                    print(f"Download failed: {result.error}")
-                
-        except Exception as e:
-            print(f"Error: {e}")
-            exit(1)
+                print(f"Error: {result.error}")
+                exit(1)
+
+if __name__ == "__main__":
+    main()

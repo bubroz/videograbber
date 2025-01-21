@@ -11,23 +11,26 @@ setup(
         "websockets>=12.0",
         "brotli>=1.1.0",
         "mutagen>=1.47.0",
-        "pycryptodomex>=3.19.0"
+        "pycryptodomex>=3.19.0",
     ],
     entry_points={
-        'console_scripts': [
-            'videograbber=videograbber.social_media_dl:main',
+        "console_scripts": [
+            "videograbber=videograbber.main:main",
         ],
     },
-    author="Your Name",
-    author_email="your.email@example.com",
-    description="A tool to download videos from various social media platforms with simplified metadata",
+    author="VideoGrabber Contributors",
+    author_email="",
+    description="A simple tool to download videos from various social media platforms",
     long_description=open("README.md").read(),
     long_description_content_type="text/markdown",
-    url="https://github.com/yourusername/videograbber",
+    url="https://github.com/bubroz/videograbber",
     classifiers=[
-        "Programming Language :: Python :: 3",
+        "Development Status :: 3 - Alpha",
+        "Intended Audience :: End Users/Desktop",
         "License :: OSI Approved :: MIT License",
-        "Operating System :: OS Independent",
+        "Programming Language :: Python :: 3",
+        "Programming Language :: Python :: 3.9",
+        "Topic :: Multimedia :: Video",
     ],
-    python_requires=">=3.7",
+    python_requires=">=3.9",
 ) 

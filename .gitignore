@@ -33,19 +33,17 @@ ENV/
 
 # Project specific
 downloads/
-*.cookies
-*.txt
-!requirements.txt
 *.mkv
 *.mp4
 *.webm
-*.info.json
+*.m4a
+*.part
+*.ytdl
+*.cookies.txt
 
-# macOS
+# OS specific
 .DS_Store
-.AppleDouble
-.LSOverride
-._*
+Thumbs.db
 
 # Logs
 *.log 
