@@ -136,7 +136,7 @@ Tips for using profiles:
 
 ## Output Files
 
-The tool creates two files in the `downloads` directory for each video:
+The tool creates two files in the `videograbber-downloads` directory for each video:
 
 1. Video File: `{title} [{video_id}].mkv`
    - Uses MKV container for maximum compatibility

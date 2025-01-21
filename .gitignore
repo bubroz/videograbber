@@ -7,7 +7,6 @@ __pycache__/
 build/
 develop-eggs/
 dist/
-downloads/
 eggs/
 .eggs/
 lib/
@@ -32,7 +31,7 @@ ENV/
 *.swo
 
 # Project specific
-downloads/
+videograbber-downloads/
 *.mkv
 *.mp4
 *.webm

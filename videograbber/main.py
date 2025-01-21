@@ -143,7 +143,7 @@ def get_profile_directory(browser: str, profile_name: Optional[str] = None) -> s
 class SocialMediaDL:
     def __init__(
         self,
-        output_dir: str = "downloads",
+        output_dir: str = "videograbber-downloads",
         cookies_file: Optional[str] = None,
         username: Optional[str] = None,
         password: Optional[str] = None
